@@ -12,38 +12,50 @@ import java.util.Calendar;
 
 public class AlarmReceiver extends BroadcastReceiver {
 
+    private static final int SILENT_TYPE = 1;
+    private static final int NORMAL_TYPE = 2;
+
     private static final int silentHour = 22;
-    private static final int silentMinute = 30;
+    private static final int silentMinute = 0;
 
     private static final int normalHour = 9;
-    private static final int normalMinute = 30;
+    private static final int normalMinute = 0;
 
     public void onReceive(Context context, Intent intent) {
         setMode(context);
     }
 
     private void setMode(Context context) {
-        if (silentModeTime()) {
-            setAlarmManager(context, normalHour, normalMinute);
-            setSoundMode(context, true);
-        } else {
-            setAlarmManager(context, silentHour, silentMinute);
-            setSoundMode(context, false);
-        }
+        boolean isSilent = silentModeTime();
+        setAlarmManager(context, isSilent);
+        setSoundMode(context, isSilent);
     }
 
-    private void setAlarmManager(Context context, int hour, int minute) {
+    private void setAlarmManager(Context context, boolean isSilent) {
         AlarmManager alarmMgr = (AlarmManager) context.getSystemService(Context.ALARM_SERVICE);
         Intent intent = new Intent(context, AlarmReceiver.class);
         PendingIntent alarmIntent = PendingIntent.getBroadcast(context, 0, intent, 0);
+        long nextTime = System.currentTimeMillis() + getDifTime(isSilent ? SILENT_TYPE : NORMAL_TYPE);
+        alarmMgr.set(AlarmManager.RTC_WAKEUP, nextTime, alarmIntent);
+    }
 
-        // Set the alarm to start
-        Calendar calendar = Calendar.getInstance();
-        calendar.setTimeInMillis(System.currentTimeMillis());
-        calendar.set(Calendar.HOUR_OF_DAY, hour);
-        calendar.set(Calendar.MINUTE, minute);
+    private long getDifTime(int type) {
+        switch (type) {
+            case SILENT_TYPE:
+                return difHours(normalHour, silentHour) * 60 * 60 * 1000;
+            case NORMAL_TYPE:
+                return difHours(silentHour, normalHour) * 60 * 60 * 1000;
+            default: return 0;
+        }
+    }
 
-        alarmMgr.set(AlarmManager.RTC_WAKEUP, calendar.getTimeInMillis(), alarmIntent);
+    private int difHours(int hour1, int hour2) {
+        if (hour1 < hour2)
+            return hour2 - hour1;
+        else if (hour1 > hour2)
+            return 24 - hour1 + hour2;
+        else
+            return 24;
     }
 
     private boolean silentModeTime() {
